@@ -3,19 +3,25 @@
 // ---------------------------
 
 type CommonParams<T> = {
-  code: number,
-  message: string
-  data: T
-}
+  code: number;
+  message: string;
+  data: T;
+};
 
 declare namespace API {
   type LoginParams = {
     username?: string;
     password?: string;
+    captcha?: string;
   };
 
   type LoginResult = {
     token?: string;
+  };
+
+  type FakeCaptcha = {
+    code?: number;
+    img: string;
   };
 
   // -------------------------
@@ -66,11 +72,6 @@ declare namespace API {
     /** 列表的内容总数 */
     total?: number;
     success?: boolean;
-  };
-
-  type FakeCaptcha = {
-    code?: number;
-    status?: string;
   };
 
   type ErrorResponse = {

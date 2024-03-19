@@ -1,17 +1,11 @@
 import { Footer } from '@/components';
-import { login } from '@/services/http/login';
-import {
-  LockOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
-import {
-  LoginForm,
-  ProFormCheckbox,
-  ProFormText,
-} from '@ant-design/pro-components';
-import { FormattedMessage, history } from '@umijs/max';
-import React from 'react';
+import { getCaptcha, login } from '@/services/http/login';
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
+import { history } from '@umijs/max';
+import React, { useEffect, useState } from 'react';
 import { createStyles } from 'antd-style';
+import { message } from 'antd';
 
 const useStyles = createStyles(({ token }) => {
   return {
@@ -39,23 +33,39 @@ const useStyles = createStyles(({ token }) => {
 
 const Login: React.FC = () => {
   const { styles } = useStyles();
-
+  const [messageApi, contextHolder] = message.useMessage();
+  const [captcha, setCaptcha] = useState<string | undefined>();
+  const flashCaptcha = () => {
+    getCaptcha().then((res) => {
+      setCaptcha(() => res.img);
+    });
+  };
+  useEffect(() => {
+    flashCaptcha();
+  }, []);
   const handleSubmit = async (values: API.LoginParams) => {
     try {
       // 登录
-      const res = await login({ ...values });
-      if (res.code === 200) {
+      const res = await login({
+        ...values,
+      });
+      if (res.code === 200 && res.message === 'OK') {
         const urlParams = new URL(window.location.href).searchParams;
-        localStorage.setItem('token', res.data.token || '')
+        localStorage.setItem('token', res.data.token || '');
         history.push(urlParams.get('redirect') || '/');
         return;
+      } else if (res.message !== 'OK') {
+        if (res.message === '验证码错误') flashCaptcha();
+        messageApi.open({
+          type: 'error',
+          content: res.message,
+        });
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   };
-
   return (
     <div className={styles.container}>
+      {contextHolder}
       <div
         style={{
           height: '100vh',
@@ -73,51 +83,67 @@ const Login: React.FC = () => {
             autoLogin: true,
           }}
           onFinish={async (values) => {
-            console.log('values', values)
             await handleSubmit(values as API.LoginParams);
           }}
         >
-
-            <>
+          <>
+            <ProFormText
+              name="username"
+              fieldProps={{
+                size: 'large',
+                prefix: <UserOutlined />,
+              }}
+              placeholder="用户名"
+              rules={[
+                {
+                  required: true,
+                  message: '用户名是必填项！',
+                },
+              ]}
+            />
+            <ProFormText.Password
+              name="password"
+              fieldProps={{
+                size: 'large',
+                prefix: <LockOutlined />,
+              }}
+              placeholder="密码"
+              rules={[
+                {
+                  required: true,
+                  message: '密码是必填项！',
+                },
+              ]}
+            />
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
               <ProFormText
-                name="username"
+                name="captcha"
+                placeholder="验证码"
                 fieldProps={{
                   size: 'large',
-                  prefix: <UserOutlined />,
                 }}
-                placeholder="用户名: admin or user"
                 rules={[
                   {
                     required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.username.required"
-                        defaultMessage="请输入用户名!"
-                      />
-                    ),
+                    message: '验证码是必填项！',
                   },
+                  { len: 4, message: '验证码为四个字符！' },
                 ]}
               />
-              <ProFormText.Password
-                name="password"
-                fieldProps={{
-                  size: 'large',
-                  prefix: <LockOutlined />,
-                }}
-                placeholder="密码: ant.design"
-                rules={[
-                  {
-                    required: true,
-                    message: (
-                      <FormattedMessage
-                        id="pages.login.password.required"
-                        defaultMessage="请输入密码！"
-                      />
-                    ),
-                  },
-                ]}
-              />
-            </>
+              {
+                <span
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => flashCaptcha()}
+                  dangerouslySetInnerHTML={{ __html: captcha || '' }}
+                />
+              }
+            </div>
+          </>
 
           <div
             style={{
@@ -141,5 +167,4 @@ const Login: React.FC = () => {
     </div>
   );
 };
-
 export default Login;
